@@ -48,6 +48,7 @@
 #include "AudioPolicyManagerTestClient.h"
 #include "AudioPolicyTestClient.h"
 #include "AudioPolicyTestManager.h"
+#include "AudioProfileVectorHelper.h"
 #include "test_execution_tracer.h"
 
 using namespace android;
@@ -134,6 +135,24 @@ TEST(AudioPolicyConfigTest, LoadForTests) {
         EXPECT_FALSE(result.value()->getInputDevices().isEmpty());
         EXPECT_FALSE(result.value()->getOutputDevices().isEmpty());
     }
+}
+
+TEST(AudioProfileVectorHelperTest, DisjointStereoDoesNotOverrideMatchingFourChannelInput) {
+    const audio_channel_mask_t requestedMask = audio_channel_mask_from_representation_and_bits(
+            AUDIO_CHANNEL_REPRESENTATION_INDEX, 0xc);
+    AudioProfileVector profiles;
+    profiles.add(sp<AudioProfile>::make(
+            AUDIO_FORMAT_PCM_16_BIT,
+            ChannelMaskSet{AUDIO_CHANNEL_IN_MONO, AUDIO_CHANNEL_IN_STEREO,
+                           AUDIO_CHANNEL_IN_FRONT_BACK, AUDIO_CHANNEL_IN_2POINT0POINT2},
+            SampleRateSet{48000}));
+    uint32_t samplingRate = 48000;
+    audio_channel_mask_t channelMask = requestedMask;
+    audio_format_t format = AUDIO_FORMAT_PCM_16_BIT;
+
+    ASSERT_EQ(NO_ERROR, checkCompatibleProfile(profiles, samplingRate, channelMask, format,
+                                               AUDIO_PORT_TYPE_MIX, AUDIO_PORT_ROLE_SINK));
+    EXPECT_EQ(AUDIO_CHANNEL_IN_2POINT0POINT2, channelMask);
 }
 
 TEST(AudioPolicyManagerTestInit, EngineFailure) {
